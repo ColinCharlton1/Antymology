@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Antymology.Terrain
 {
@@ -15,6 +16,31 @@ namespace Antymology.Terrain
         /// The prefab containing the ant.
         /// </summary>
         public GameObject antPrefab;
+
+        /// <summary>
+        /// The prefab containing the Queen ant.
+        /// </summary>
+        public GameObject queenAntPrefab;
+
+        /// <summary>
+        /// A list of all the ants in this generation.
+        /// </summary>
+        public QueenAnt theQueen;
+
+        /// <summary>
+        /// TEMPORARY, number of ants to spawn for testing.
+        /// </summary>
+        public int numAnts;
+
+        /// <summary>
+        /// A list of all the ants in this generation.
+        /// </summary>
+        public List<Ant> Ants;
+
+        /// <summary>
+        /// A list of all the ants that have died this generation.
+        /// </summary>
+        private List<Ant> DeadAnts;
 
         /// <summary>
         /// The material used for eech block.
@@ -40,6 +66,16 @@ namespace Antymology.Terrain
         /// Random number generator.
         /// </summary>
         private SimplexNoise SimplexNoise;
+
+        /// <summary>
+        /// The text for displaying ticks.
+        /// </summary>
+        private Text TickText;
+
+        /// <summary>
+        /// The elapsed ticks.
+        /// </summary>
+        private int Ticks;
 
         #endregion
 
@@ -67,6 +103,11 @@ namespace Antymology.Terrain
                 ConfigurationManager.Instance.World_Diameter,
                 ConfigurationManager.Instance.World_Height,
                 ConfigurationManager.Instance.World_Diameter];
+
+            Ants = new List<Ant>();
+            GameObject tickTextObj = GameObject.FindGameObjectWithTag("TickDisplay");
+            TickText = tickTextObj.GetComponent<Text>();
+            Ticks = 0;
         }
 
         /// <summary>
@@ -88,12 +129,65 @@ namespace Antymology.Terrain
         /// </summary>
         private void GenerateAnts()
         {
-            throw new NotImplementedException();
+            int xQueen = Blocks.GetLength(0) / 2;
+            int zQueen = Blocks.GetLength(2) / 2;
+            float yQueen = -1f;
+            for (int j = Blocks.GetLength(1) - 1; j >= 0; j--)
+            {
+                if (Blocks[xQueen, j, zQueen] as AirBlock == null)
+                {
+                    yQueen = j + 0.7f;
+                    break;
+                }
+            }
+            GameObject queen = Instantiate(queenAntPrefab, new Vector3(xQueen, yQueen, zQueen), Quaternion.identity);
+            theQueen = queen.GetComponent<QueenAnt>();
+            theQueen.Init(this);
+
+            for (int i = 0; i < numAnts; i++)
+            {
+                int xCoord = RNG.Next(0, Blocks.GetLength(0));
+                int zCoord = RNG.Next(0, Blocks.GetLength(2));
+                float yCoord = -1f;
+                for (int j = Blocks.GetLength(1) - 1; j >= 0; j--)
+                {
+                    if (Blocks[xCoord, j, zCoord] as AirBlock == null)
+                    {
+                        yCoord = j + 0.7f;
+                        break;
+                    }
+                }
+                GameObject antObj = Instantiate(antPrefab, new Vector3(xCoord, yCoord, zCoord), Quaternion.identity);
+                Ant ant = antObj.GetComponent<Ant>();
+                ant.Init(this);
+                Ants.Add(ant);
+            }
+            
+        }
+
+        void FixedUpdate()
+        {
+            TickText.text = "Ticks : " + Ticks;
+            foreach (Ant ant in Ants)
+            {
+                ant.DoAction(RNG.Next(9));
+            }
+            theQueen.DoAction(RNG.Next(9));
+            Ticks++;
         }
 
         #endregion
 
         #region Methods
+
+        /// <summary>
+        /// Moves ant from list of living to list of dead.
+        /// </summary>
+        public void KillAnt(Ant ant)
+        {
+            DeadAnts.Add(ant);
+            Ants.Remove(ant);
+        }
 
         /// <summary>
         /// Retrieves an abstract block type at the desired world coordinates.
@@ -395,7 +489,7 @@ namespace Antymology.Terrain
 
             if (updateZ - 1 >= 0)
                 Chunks[updateX, updateY, updateZ - 1].updateNeeded = true;
-            if (updateX + 1 < Chunks.GetLength(2))
+            if (updateZ + 1 < Chunks.GetLength(2))
                 Chunks[updateX, updateY, updateZ + 1].updateNeeded = true;
         }
 
