@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 public class BlocksDisplay : MonoBehaviour
 {
-    private int nestBlocks = 0;
+    public int nestBlocks = 0;
     public Text nestBlockText;
     // Update is called once per frame
     void Update()
@@ -15,5 +15,10 @@ public class BlocksDisplay : MonoBehaviour
     public void AddNestBlock()
     {
         nestBlocks++;
+    }
+    public void ResetNestBlocks()
+    {
+        nestBlocks = 0;
+        nestBlockText.text = "Nest Blocks : " + nestBlocks;
     }
 }

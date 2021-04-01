@@ -103,7 +103,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6137093042308707576}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 36.85, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 801310387491329491}
@@ -122,3 +122,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1156abdc2b4ad04b83add69bfa4c29f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  health: 10000
+  maxStone: 10
+  maxGrass: 10
+  feelings: 0
+  ticksSurvived: 0
+  takenActions: 
+  score: 0
+  genetics: []

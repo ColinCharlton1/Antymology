@@ -6,6 +6,8 @@ TagManager:
   tags:
   - TextDisplay
   - TickDisplay
+  - Manager
+  - GenText
   layers:
   - Default
   - TransparentFX

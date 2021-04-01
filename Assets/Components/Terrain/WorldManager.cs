@@ -13,36 +13,6 @@ namespace Antymology.Terrain
         #region Fields
 
         /// <summary>
-        /// The prefab containing the ant.
-        /// </summary>
-        public GameObject antPrefab;
-
-        /// <summary>
-        /// The prefab containing the Queen ant.
-        /// </summary>
-        public GameObject queenAntPrefab;
-
-        /// <summary>
-        /// A list of all the ants in this generation.
-        /// </summary>
-        public QueenAnt theQueen;
-
-        /// <summary>
-        /// TEMPORARY, number of ants to spawn for testing.
-        /// </summary>
-        public int numAnts;
-
-        /// <summary>
-        /// A list of all the ants in this generation.
-        /// </summary>
-        public List<Ant> Ants;
-
-        /// <summary>
-        /// A list of all the ants that have died this generation.
-        /// </summary>
-        private List<Ant> DeadAnts;
-
-        /// <summary>
         /// The material used for eech block.
         /// </summary>
         public Material blockMaterial;
@@ -56,6 +26,11 @@ namespace Antymology.Terrain
         /// Reference to the geometry data of the chunks.
         /// </summary>
         private Chunk[,,] Chunks;
+
+        /// <summary>
+        /// Reference to the worlds topography .
+        /// </summary>
+        public int[,] Topography;
 
         /// <summary>
         /// Random number generator.
@@ -75,7 +50,7 @@ namespace Antymology.Terrain
         /// <summary>
         /// The elapsed ticks.
         /// </summary>
-        private int Ticks;
+        public int Ticks;
 
         #endregion
 
@@ -86,11 +61,18 @@ namespace Antymology.Terrain
         /// </summary>
         void Awake()
         {
-            // Generate new random number generator
-            RNG = new System.Random(ConfigurationManager.Instance.Seed);
+            if (RNG == null)
+            {
+                // Generate new random number generator
+                RNG = new System.Random(ConfigurationManager.Instance.Seed);
 
-            // Generate new simplex noise generator
-            SimplexNoise = new SimplexNoise(ConfigurationManager.Instance.Seed);
+                // Generate new simplex noise generator
+                SimplexNoise = new SimplexNoise(ConfigurationManager.Instance.Seed);
+            } else
+            {
+                // Generate new simplex noise generator
+                SimplexNoise = new SimplexNoise(ConfigurationManager.Instance.Seed + AgentManager.Instance.gen);
+            }
 
             // Initialize a new 3D array of blocks with size of the number of chunks times the size of each chunk
             Blocks = new AbstractBlock[
@@ -104,7 +86,10 @@ namespace Antymology.Terrain
                 ConfigurationManager.Instance.World_Height,
                 ConfigurationManager.Instance.World_Diameter];
 
-            Ants = new List<Ant>();
+            Topography = new int[
+                ConfigurationManager.Instance.World_Diameter * ConfigurationManager.Instance.Chunk_Diameter,
+                ConfigurationManager.Instance.World_Diameter * ConfigurationManager.Instance.Chunk_Diameter];
+
             GameObject tickTextObj = GameObject.FindGameObjectWithTag("TickDisplay");
             TickText = tickTextObj.GetComponent<Text>();
             Ticks = 0;
@@ -117,10 +102,6 @@ namespace Antymology.Terrain
         {
             GenerateData();
             GenerateChunks();
-
-            Camera.main.transform.position = new Vector3(0 / 2, Blocks.GetLength(1), 0);
-            Camera.main.transform.LookAt(new Vector3(Blocks.GetLength(0), 0, Blocks.GetLength(2)));
-
             GenerateAnts();
         }
 
@@ -129,64 +110,22 @@ namespace Antymology.Terrain
         /// </summary>
         private void GenerateAnts()
         {
-            int xQueen = Blocks.GetLength(0) / 2;
-            int zQueen = Blocks.GetLength(2) / 2;
-            float yQueen = -1f;
-            for (int j = Blocks.GetLength(1) - 1; j >= 0; j--)
+            if (AgentManager.Instance.gen == 0)
             {
-                if (Blocks[xQueen, j, zQueen] as AirBlock == null)
-                {
-                    yQueen = j + 0.7f;
-                    break;
-                }
+                Camera.main.transform.position = new Vector3(0 / 2, Blocks.GetLength(1), 0);
+                Camera.main.transform.LookAt(new Vector3(Blocks.GetLength(0), 0, Blocks.GetLength(2)));
+                AgentManager.Instance.Init(RNG);
             }
-            GameObject queen = Instantiate(queenAntPrefab, new Vector3(xQueen, yQueen, zQueen), Quaternion.identity);
-            theQueen = queen.GetComponent<QueenAnt>();
-            theQueen.Init(this);
-
-            for (int i = 0; i < numAnts; i++)
-            {
-                int xCoord = RNG.Next(0, Blocks.GetLength(0));
-                int zCoord = RNG.Next(0, Blocks.GetLength(2));
-                float yCoord = -1f;
-                for (int j = Blocks.GetLength(1) - 1; j >= 0; j--)
-                {
-                    if (Blocks[xCoord, j, zCoord] as AirBlock == null)
-                    {
-                        yCoord = j + 0.7f;
-                        break;
-                    }
-                }
-                GameObject antObj = Instantiate(antPrefab, new Vector3(xCoord, yCoord, zCoord), Quaternion.identity);
-                Ant ant = antObj.GetComponent<Ant>();
-                ant.Init(this);
-                Ants.Add(ant);
-            }
-            
-        }
-
-        void FixedUpdate()
-        {
-            TickText.text = "Ticks : " + Ticks;
-            foreach (Ant ant in Ants)
-            {
-                ant.DoAction(RNG.Next(9));
-            }
-            theQueen.DoAction(RNG.Next(9));
-            Ticks++;
         }
 
         #endregion
 
         #region Methods
 
-        /// <summary>
-        /// Moves ant from list of living to list of dead.
-        /// </summary>
-        public void KillAnt(Ant ant)
+        public void Update()
         {
-            DeadAnts.Add(ant);
-            Ants.Remove(ant);
+            TickText.text = "Ticks : " + Ticks;
+            Ticks++;
         }
 
         /// <summary>
@@ -260,6 +199,13 @@ namespace Antymology.Terrain
             }
 
             Blocks[WorldXCoordinate, WorldYCoordinate, WorldZCoordinate] = toSet;
+            if (toSet as AirBlock != null)
+            {
+                Topography[WorldXCoordinate, WorldZCoordinate]--;
+            }
+            else {
+                Topography[WorldXCoordinate, WorldZCoordinate]++;
+            }
 
             SetChunkContainingBlockToUpdate
             (
@@ -303,12 +249,28 @@ namespace Antymology.Terrain
                 ChunkZCoordinate * LocalZCoordinate
             ] = toSet;
 
+            if (toSet as AirBlock != null)
+            {
+                Topography[ChunkXCoordinate * LocalXCoordinate, ChunkZCoordinate * LocalZCoordinate]--;
+            }
+            else
+            {
+                Topography[ChunkXCoordinate * LocalXCoordinate, ChunkZCoordinate * LocalZCoordinate]++;
+            }
+
             SetChunkContainingBlockToUpdate
             (
                 ChunkXCoordinate * LocalXCoordinate,
                 ChunkYCoordinate * LocalYCoordinate,
                 ChunkZCoordinate * LocalZCoordinate
             );
+        }
+
+        public void CreateNewWorld()
+        {
+            foreach (Chunk c in Chunks) DestroyImmediate(c.gameObject);
+            Awake();
+            Start();
         }
 
         #endregion
@@ -344,6 +306,8 @@ namespace Antymology.Terrain
                                        10;
                     int grassHeight = SimplexNoise.GetPerlinNoise(x, 100, z, 30, 10, 0);
                     int foodHeight = SimplexNoise.GetPerlinNoise(x, 200, z, 20, 5, 1.5);
+
+                    Topography[x, z] = stoneCeiling + grassHeight + foodHeight;
 
                     for (int y = 0; y < Blocks.GetLength(1); y++)
                     {
@@ -412,7 +376,7 @@ namespace Antymology.Terrain
                                 CX = Mathf.Clamp(HX, 1, Blocks.GetLength(0) - 2);
                                 CZ = Mathf.Clamp(HZ, 1, Blocks.GetLength(2) - 2);
                                 CY = Mathf.Clamp(HY, 1, Blocks.GetLength(1) - 2);
-                                if (Blocks[CX, CY, CZ] as AirBlock != null)
+                                if (Blocks[CX, CY, CZ] as AirBlock == null)
                                     Blocks[CX, CY, CZ] = new AcidicBlock();
                             }
                         }
@@ -440,19 +404,24 @@ namespace Antymology.Terrain
                 {
                     for (int HZ = zCoord - ConfigurationManager.Instance.Conatiner_Sphere_Radius; HZ < zCoord + ConfigurationManager.Instance.Conatiner_Sphere_Radius; HZ++)
                     {
+                        int CX, CZ;
+                        CX = Mathf.Clamp(HX, 1, Blocks.GetLength(0) - 2);
+                        CZ = Mathf.Clamp(HZ, 1, Blocks.GetLength(2) - 2);
+                        float xSquare = (xCoord - HX) * (xCoord - HX);
+                        float zSquare = (zCoord - HZ) * (zCoord - HZ);
+                        float CircDist = Mathf.Sqrt(xSquare + zSquare);
+
+                        if (CircDist <= ConfigurationManager.Instance.Conatiner_Sphere_Radius)
+                            Topography[CX, CZ] = Mathf.Clamp(yCoord + ConfigurationManager.Instance.Conatiner_Sphere_Radius, 1, Blocks.GetLength(1) - 2);    
+
                         for (int HY = yCoord - ConfigurationManager.Instance.Conatiner_Sphere_Radius; HY < yCoord + ConfigurationManager.Instance.Conatiner_Sphere_Radius; HY++)
                         {
-                            float xSquare = (xCoord - HX) * (xCoord - HX);
-                            float ySquare = (yCoord - HY) * (yCoord - HY);
-                            float zSquare = (zCoord - HZ) * (zCoord - HZ);
-                            float Dist = Mathf.Sqrt(xSquare + ySquare + zSquare);
-                            if (Dist <= ConfigurationManager.Instance.Conatiner_Sphere_Radius)
+                            if (CircDist <= ConfigurationManager.Instance.Conatiner_Sphere_Radius)
                             {
-                                int CX, CY, CZ;
-                                CX = Mathf.Clamp(HX, 1, Blocks.GetLength(0) - 2);
-                                CZ = Mathf.Clamp(HZ, 1, Blocks.GetLength(2) - 2);
+                                int CY;
                                 CY = Mathf.Clamp(HY, 1, Blocks.GetLength(1) - 2);
                                 Blocks[CX, CY, CZ] = new ContainerBlock();
+                                Topography[CX, CZ] = CY;
                             }
                         }
                     }
